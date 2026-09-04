@@ -1,16 +1,21 @@
 # Skyline — weather station (single file + AI Q&A)
 
+## 🔗 Working links
+
+- **Live app:** https://skyline-weather.pages.dev
+- **GitHub repo:** https://github.com/rishikareddi76/skyline
+
 The UI — markup, styling, and logic — lives in one file: `index.html`.
 Weather data comes from the free, keyless [Open-Meteo](https://open-meteo.com)
 API. One small serverless function (`functions/api/ask.js`) adds a chat box
-that answers questions about the current forecast using Claude.
+that answers questions about the current forecast using AI.
 
 ```
 weather-app-single/
 ├── index.html          the entire UI (HTML + CSS + JS in one file)
 ├── functions/
 │   └── api/
-│       └── ask.js      Cloudflare Pages Function — calls Claude, keeps the API key server-side
+│       └── ask.js      Cloudflare Pages Function — answers forecast questions via AI
 ├── wrangler.toml
 └── README.md
 ```
@@ -35,23 +40,21 @@ weather-app-single/
 
 ## Setting up the Q&A feature
 
-The chat box calls `/api/ask`, a Cloudflare Pages Function that talks to
-the Anthropic API. It needs an Anthropic API key, kept server-side as a
-**secret** — it's never exposed to the browser.
+The chat box calls `/api/ask`, a Cloudflare Pages Function that answers
+forecast questions with one of three AI providers, chosen by the
+`AI_PROVIDER` environment variable. Keys (if any) stay server-side as
+Pages **secrets** — never exposed to the browser.
 
-1. Get an API key from the [Anthropic Console](https://console.anthropic.com/) if you don't have one.
-2. After deploying (see below), set the secret:
-   ```bash
-   wrangler pages secret put ANTHROPIC_API_KEY --project-name skyline-weather
-   ```
-   (paste the key when prompted), or in the dashboard: your Pages project →
-   **Settings** → **Environment variables** → add `ANTHROPIC_API_KEY` as
-   a **Secret** (not plaintext), for both Production and Preview.
-3. Redeploy if you added the secret via the dashboard mid-session — Pages
-   picks it up on the next build/deploy automatically otherwise.
+| Provider | `AI_PROVIDER` | Requires | Cost |
+|---|---|---|---|
+| **Cloudflare Workers AI** (default) | `workers-ai` | the `[ai]` binding in `wrangler.toml` | free tier, no key |
+| **Google Gemini** | `gemini` | `GEMINI_API_KEY` secret | free tier |
+| **Anthropic** | `anthropic` | `ANTHROPIC_API_KEY` secret | paid |
 
-Without the key set, everything else in the app still works — the chat
-box will just show a message saying the assistant isn't configured yet.
+Without `AI_PROVIDER` set, the function picks Workers AI automatically if
+the binding exists, then Gemini, then Anthropic. If nothing is configured,
+everything else in the app still works — the chat box just shows a message
+saying the assistant isn't configured yet.
 
 ## Run it locally
 
@@ -61,10 +64,15 @@ Pages Functions are running, so to test the chat box locally use:
 
 ```bash
 npm install -g wrangler
-wrangler pages dev . --compatibility-date=2026-01-01
-# then set the secret for local dev too (one-time, stored in .dev.vars or passed via --binding):
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .dev.vars
+wrangler pages dev . --compatibility-date=2026-01-01 --port 8788
+# optional, for the chat in local dev (one-time; never commit .dev.vars):
+echo "AI_PROVIDER=gemini
+GEMINI_API_KEY=your-key" > .dev.vars
 ```
+
+Note: with the `[ai]` binding present, `wrangler pages dev` runs in remote
+mode and needs a registered workers.dev subdomain (`wrangler subdomain` via
+the dashboard onboarding).
 
 ## Deploy to Cloudflare Pages
 
@@ -72,13 +80,15 @@ echo "ANTHROPIC_API_KEY=sk-ant-..." > .dev.vars
 ```bash
 wrangler login
 wrangler pages deploy .
-wrangler pages secret put ANTHROPIC_API_KEY --project-name skyline-weather
+# optional, to switch providers or enable Gemini/Anthropic:
+wrangler pages secret put AI_PROVIDER --project-name skyline-weather   # e.g. gemini
+wrangler pages secret put GEMINI_API_KEY --project-name skyline-weather
 ```
 
 **Dashboard (no CLI):** Cloudflare dashboard → Workers & Pages → Create →
 Pages → Upload assets → drag in this whole folder, including the
 `functions/` directory (that's what makes `/api/ask` work) → Deploy →
-then add the `ANTHROPIC_API_KEY` secret under Settings → Environment
-variables as described above.
+then add any secrets under Settings → Environment variables as described
+above.
 
 You'll get a live `*.pages.dev` URL in seconds.
