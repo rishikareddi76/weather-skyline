@@ -3,7 +3,7 @@
 ## 🔗 Working links
 
 - **Live app:** https://skyline-weather.pages.dev
-- **GitHub repo:** https://github.com/rishikareddi76/skyline
+- **GitHub repo:** https://github.com/rishikareddi76/weather-skyline
 
 The UI — markup, styling, and logic — lives in one file: `index.html`.
 Weather data comes from the free, keyless [Open-Meteo](https://open-meteo.com)
